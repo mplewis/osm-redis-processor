@@ -1,0 +1,129 @@
+package osmproc;
+
+import redis.clients.jedis.Jedis;
+
+import javax.xml.stream.XMLEventReader;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.events.Attribute;
+import javax.xml.stream.events.EndElement;
+import javax.xml.stream.events.StartElement;
+import javax.xml.stream.events.XMLEvent;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.util.Iterator;
+
+@SuppressWarnings({"PointlessBooleanExpression", "ConstantConditions"})
+public class Main {
+
+    public static final boolean ADD_NODES = false;
+    public static final boolean ADD_NODE_ADJ = true;
+
+    public static final String OSM_DATA_XML_PATH = "data/mpls-stpaul.osm";
+    public static final String JEDIS_HOST = "localhost";
+
+    public static final String NODE_TAG = "node";
+    public static final String WAY_TAG = "way";
+    public static final String NODE_REF_TAG = "nd";
+
+    public static final String NODE_ATTR_ID = "id";
+    public static final String NODE_ATTR_LAT = "lat";
+    public static final String NODE_ATTR_LON = "lon";
+
+    public static final String NODE_REF_ATTR_ID = "ref";
+
+    public static void main(String[] args) {
+        try {
+            Jedis jedis = new Jedis(JEDIS_HOST);
+            File file = new File(OSM_DATA_XML_PATH);
+
+            long startTime = System.currentTimeMillis();
+
+            XMLInputFactory inputFactory = XMLInputFactory.newInstance();
+            InputStream in = new FileInputStream(file);
+            XMLEventReader eventReader = inputFactory.createXMLEventReader(in);
+
+            Node node = new Node();
+            Way way = new Way();
+
+            int nodeCount = 0;
+            int wayCount = 0;
+
+            while (eventReader.hasNext()) {
+                XMLEvent event = eventReader.nextEvent();
+
+                if (event.isStartElement()) {
+                    StartElement startElement = event.asStartElement();
+                    if (ADD_NODES && startElement.getName().getLocalPart().equals(NODE_TAG)) {
+                        node = new Node();
+                        Iterator attributes = startElement.getAttributes();
+                        while (attributes.hasNext()) {
+                            Attribute attribute = (Attribute) attributes.next();
+                            if (attribute.getName().toString().equals(NODE_ATTR_ID)) {
+                                node.setId(attribute.getValue());
+                            } else if (attribute.getName().toString().equals(NODE_ATTR_LAT)) {
+                                node.setLat(Float.parseFloat(attribute.getValue()));
+                            } else if (attribute.getName().toString().equals(NODE_ATTR_LON)) {
+                                node.setLon(Float.parseFloat(attribute.getValue()));
+                            }
+                        }
+                    } else if (ADD_NODE_ADJ && startElement.getName().getLocalPart().equals(WAY_TAG)) {
+                        way = new Way();
+                    } else if (ADD_NODE_ADJ && startElement.getName().getLocalPart().equals(NODE_REF_TAG)) {
+                        Iterator attributes = startElement.getAttributes();
+                        while (attributes.hasNext()) {
+                            Attribute attribute = (Attribute) attributes.next();
+                            if (attribute.getName().toString().equals(NODE_REF_ATTR_ID)) {
+                                way.addNodeId(attribute.getValue());
+                            }
+                        }
+                    }
+                } else if (event.isEndElement()) {
+                    EndElement endElement = event.asEndElement();
+                    if (ADD_NODES && endElement.getName().getLocalPart().equals(NODE_TAG)) {
+                        commitNodeToRedis(node, jedis);
+                        nodeCount++;
+                        if (nodeCount % 10000 == 0) {
+                            float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
+                            System.out.println(String.format("%.3f: %s nodes", elapsed, nodeCount));
+                        }
+                    } else if (ADD_NODE_ADJ && endElement.getName().getLocalPart().equals(WAY_TAG)) {
+                        commitWayToRedis(way, jedis);
+                        wayCount++;
+                        if (wayCount % 1000 == 0) {
+                            float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
+                            System.out.println(String.format("%.3f: %s ways", elapsed, wayCount));
+                        }
+                    }
+                }
+
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    static void commitNodeToRedis(Node node, Jedis jedis) {
+        String key = String.format("node:%s", node.getId());
+        String val = String.format("%s:%s", node.getLat(), node.getLon());
+        jedis.set(key, val);
+    }
+
+    static void commitWayToRedis(Way way, Jedis jedis) {
+        String key;
+        String first;
+        String second;
+        for (Tuple<String, String> nodeIdPair : way.getNodeIdPairs()) {
+            first = nodeIdPair.x;
+            second = nodeIdPair.y;
+            commitNodeAdjToRedis(first, second, jedis);
+            commitNodeAdjToRedis(second, first, jedis);
+        }
+    }
+
+    static void commitNodeAdjToRedis(String baseNode, String adjNode, Jedis jedis) {
+        String key = String.format("nodeadj:%s", baseNode);
+        jedis.sadd(key, adjNode);
+    }
+
+}
