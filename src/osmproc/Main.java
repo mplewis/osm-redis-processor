@@ -16,11 +16,15 @@ import java.util.Iterator;
 @SuppressWarnings({"PointlessBooleanExpression", "ConstantConditions"})
 public class Main {
 
+    /* Node processing settings */
+
     public static final boolean ADD_NODES = false;
     public static final boolean ADD_NODE_ADJ = true;
 
     public static final String OSM_DATA_XML_PATH = "data/mpls-stpaul.osm";
     public static final String JEDIS_HOST = "localhost";
+
+    /* XML properties: do not modify! */
 
     public static final String NODE_TAG = "node";
     public static final String WAY_TAG = "way";
@@ -31,6 +35,8 @@ public class Main {
     public static final String NODE_ATTR_LON = "lon";
 
     public static final String NODE_REF_ATTR_ID = "ref";
+
+    /* The bread and butter */
 
     public static void main(String[] args) {
         try {
