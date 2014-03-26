@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Iterator;
+import java.util.List;
 
 @SuppressWarnings({"PointlessBooleanExpression", "ConstantConditions"})
 public class Main {
@@ -29,6 +30,8 @@ public class Main {
     public static final Area NODE_AREA = new Area(LAT_MIN, LAT_MAX, LON_MIN, LON_MAX);
 
     public static final boolean COMMIT_DATA_TO_REDIS = false;
+
+    public static final boolean TABULATE_TAGS = false;
 
     public static final String OSM_DATA_XML_PATH = "data/mpls-stpaul.osm";
     public static final String JEDIS_HOST = "localhost";
@@ -48,6 +51,8 @@ public class Main {
     /* The bread and butter */
 
     public static void main(String[] args) {
+        Tabulator tagTab = new Tabulator();
+
         try {
             Jedis jedis = new Jedis(JEDIS_HOST);
             File file = new File(OSM_DATA_XML_PATH);
@@ -60,6 +65,7 @@ public class Main {
 
             Node node = new Node();
             Way way = new Way();
+            String tagKey = null;
 
             int nodeCount = 0;
             int nodeAddedCount = 0;
@@ -92,6 +98,7 @@ public class Main {
                     } else if (ADD_NODE_ADJ && startElement.getName().getLocalPart().equals(WAY_TAG)) {
 
                         way = new Way();
+                        tagKey = null;
 
                     } else if (ADD_NODE_ADJ && startElement.getName().getLocalPart().equals(NODE_REF_TAG)) {
 
@@ -102,6 +109,26 @@ public class Main {
                                 way.addNodeId(attribute.getValue());
                             }
                         }
+
+                    } else if (ADD_NODE_ADJ && startElement.getName().getLocalPart().equals("tag")) {
+
+                        Iterator attributes = startElement.getAttributes();
+                        while (attributes.hasNext()) {
+                            Attribute attribute = (Attribute) attributes.next();
+
+                            if (attribute.getName().toString().equals("k")) {
+                                tagKey = attribute.getValue();
+
+                            } else if (attribute.getName().toString().equals("v")) {
+                                String tagVal = attribute.getValue();
+                                way.addTag(tagKey, tagVal);
+
+                                if (TABULATE_TAGS) {
+                                    tagTab.addKey(tagKey);
+                                }
+                            }
+                        }
+
                     }
 
                 } else if (event.isEndElement()) {
@@ -137,6 +164,13 @@ public class Main {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+
+        if (TABULATE_TAGS) {
+            List<Tabulator.KeyCount> tagCounts = tagTab.getSortedCountsDesc();
+            for (Tabulator.KeyCount tagCount : tagCounts) {
+                System.out.println(tagCount.key + ": " + tagCount.count);
+            }
         }
     }
 
