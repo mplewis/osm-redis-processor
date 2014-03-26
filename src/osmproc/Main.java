@@ -59,12 +59,16 @@ public class Main {
                 XMLEvent event = eventReader.nextEvent();
 
                 if (event.isStartElement()) {
+
                     StartElement startElement = event.asStartElement();
                     if (ADD_NODES && startElement.getName().getLocalPart().equals(NODE_TAG)) {
+
                         node = new Node();
                         Iterator attributes = startElement.getAttributes();
+
                         while (attributes.hasNext()) {
                             Attribute attribute = (Attribute) attributes.next();
+
                             if (attribute.getName().toString().equals(NODE_ATTR_ID)) {
                                 node.setId(attribute.getValue());
                             } else if (attribute.getName().toString().equals(NODE_ATTR_LAT)) {
@@ -72,10 +76,15 @@ public class Main {
                             } else if (attribute.getName().toString().equals(NODE_ATTR_LON)) {
                                 node.setLon(Float.parseFloat(attribute.getValue()));
                             }
+
                         }
+
                     } else if (ADD_NODE_ADJ && startElement.getName().getLocalPart().equals(WAY_TAG)) {
+
                         way = new Way();
+
                     } else if (ADD_NODE_ADJ && startElement.getName().getLocalPart().equals(NODE_REF_TAG)) {
+
                         Iterator attributes = startElement.getAttributes();
                         while (attributes.hasNext()) {
                             Attribute attribute = (Attribute) attributes.next();
@@ -84,7 +93,9 @@ public class Main {
                             }
                         }
                     }
+
                 } else if (event.isEndElement()) {
+
                     EndElement endElement = event.asEndElement();
                     if (ADD_NODES && endElement.getName().getLocalPart().equals(NODE_TAG)) {
                         commitNodeToRedis(node, jedis);
@@ -93,13 +104,17 @@ public class Main {
                             float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
                             System.out.println(String.format("%.3f: %s nodes", elapsed, nodeCount));
                         }
+
                     } else if (ADD_NODE_ADJ && endElement.getName().getLocalPart().equals(WAY_TAG)) {
+
                         commitWayToRedis(way, jedis);
+
                         wayCount++;
                         if (wayCount % 1000 == 0) {
                             float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
                             System.out.println(String.format("%.3f: %s ways", elapsed, wayCount));
                         }
+
                     }
                 }
 
@@ -108,6 +123,8 @@ public class Main {
             e.printStackTrace();
         }
     }
+
+    /* Redis database functions */
 
     static void commitNodeToRedis(Node node, Jedis jedis) {
         String key = String.format("node:%s", node.getId());
