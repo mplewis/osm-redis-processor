@@ -21,6 +21,13 @@ public class Main {
     public static final boolean ADD_NODES = false;
     public static final boolean ADD_NODE_ADJ = true;
 
+    public static final boolean FILTER_NODES_BY_AREA = true;
+    public static final double LAT_MIN =  44.959454;
+    public static final double LAT_MAX =  44.992362;
+    public static final double LON_MIN = -93.250237;
+    public static final double LON_MAX = -93.204060;
+    public static final Area NODE_AREA = new Area(LAT_MIN, LAT_MAX, LON_MIN, LON_MAX);
+
     public static final String OSM_DATA_XML_PATH = "data/mpls-stpaul.osm";
     public static final String JEDIS_HOST = "localhost";
 
@@ -53,6 +60,7 @@ public class Main {
             Way way = new Way();
 
             int nodeCount = 0;
+            int nodeAddedCount = 0;
             int wayCount = 0;
 
             while (eventReader.hasNext()) {
@@ -98,11 +106,17 @@ public class Main {
 
                     EndElement endElement = event.asEndElement();
                     if (ADD_NODES && endElement.getName().getLocalPart().equals(NODE_TAG)) {
-                        commitNodeToRedis(node, jedis);
+
+                        if (!FILTER_NODES_BY_AREA || (FILTER_NODES_BY_AREA && NODE_AREA.contains(node))) {
+                            commitNodeToRedis(node, jedis);
+                            nodeAddedCount++;
+                        }
+
                         nodeCount++;
                         if (nodeCount % 10000 == 0) {
                             float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
-                            System.out.println(String.format("%.3f: %s nodes", elapsed, nodeCount));
+                            System.out.println(String.format("%.3f: %s nodes processed, %s accepted",
+                                    elapsed, nodeCount, nodeAddedCount));
                         }
 
                     } else if (ADD_NODE_ADJ && endElement.getName().getLocalPart().equals(WAY_TAG)) {
