@@ -1,10 +1,21 @@
 package osmproc;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Way {
     private List<String> nodeIds = new ArrayList<String>();
+    private Map<String, String> tags = new HashMap<String, String>();
+
+    public Map<String, String> getTags() {
+        return tags;
+    }
+
+    public void addTag(String key, String val) {
+        tags.put(key, val);
+    }
 
     public List<String> getNodeIds() {
         return nodeIds;
