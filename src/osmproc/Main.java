@@ -128,7 +128,7 @@ public class Main {
                         wayCount++;
                         if (wayCount % 1000 == 0) {
                             float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
-                            System.out.println(String.format("%.3f: %s ways", elapsed, wayCount));
+                            System.out.println(String.format("%.3f: %s ways processed", elapsed, wayCount));
                         }
 
                     }
