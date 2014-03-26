@@ -28,6 +28,8 @@ public class Main {
     public static final double LON_MAX = -93.204060;
     public static final Area NODE_AREA = new Area(LAT_MIN, LAT_MAX, LON_MIN, LON_MAX);
 
+    public static final boolean COMMIT_DATA_TO_REDIS = false;
+
     public static final String OSM_DATA_XML_PATH = "data/mpls-stpaul.osm";
     public static final String JEDIS_HOST = "localhost";
 
@@ -141,26 +143,31 @@ public class Main {
     /* Redis database functions */
 
     static void commitNodeToRedis(Node node, Jedis jedis) {
-        String key = String.format("node:%s", node.getId());
-        String val = String.format("%s:%s", node.getLat(), node.getLon());
-        jedis.set(key, val);
+        if (COMMIT_DATA_TO_REDIS) {
+            String key = String.format("node:%s", node.getId());
+            String val = String.format("%s:%s", node.getLat(), node.getLon());
+            jedis.set(key, val);
+        }
     }
 
     static void commitWayToRedis(Way way, Jedis jedis) {
-        String key;
-        String first;
-        String second;
-        for (Tuple<String, String> nodeIdPair : way.getNodeIdPairs()) {
-            first = nodeIdPair.x;
-            second = nodeIdPair.y;
-            commitNodeAdjToRedis(first, second, jedis);
-            commitNodeAdjToRedis(second, first, jedis);
+        if (COMMIT_DATA_TO_REDIS) {
+            String first;
+            String second;
+            for (Tuple<String, String> nodeIdPair : way.getNodeIdPairs()) {
+                first = nodeIdPair.x;
+                second = nodeIdPair.y;
+                commitNodeAdjToRedis(first, second, jedis);
+                commitNodeAdjToRedis(second, first, jedis);
+            }
         }
     }
 
     static void commitNodeAdjToRedis(String baseNode, String adjNode, Jedis jedis) {
-        String key = String.format("nodeadj:%s", baseNode);
-        jedis.sadd(key, adjNode);
+        if (COMMIT_DATA_TO_REDIS) {
+            String key = String.format("nodeadj:%s", baseNode);
+            jedis.sadd(key, adjNode);
+        }
     }
 
 }
