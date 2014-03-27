@@ -1,5 +1,7 @@
 package osmproc;
 
+import com.google.common.hash.BloomFilter;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -44,6 +46,15 @@ public class Way {
             return false;
         }
         return nodeIds.get(0).equals(nodeIds.get(size() - 1));
+    }
+
+    public boolean mightHaveNodesIn(BloomFilter<CharSequence> filter) {
+        for (String nodeId : nodeIds) {
+            if (filter.mightContain(nodeId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
