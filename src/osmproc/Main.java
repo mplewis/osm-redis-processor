@@ -24,7 +24,7 @@ public class Main {
     /* Node processing settings */
 
     public static final boolean ADD_NODES = true;
-    public static final boolean ADD_NODE_ADJ = true;
+    public static final boolean ADD_NODE_ADJACENCIES = true;
 
     public static final boolean FILTER_NODES_BY_AREA = true;
     public static final double LAT_MIN =  44.959454;
@@ -110,12 +110,12 @@ public class Main {
 
                         }
 
-                    } else if (ADD_NODE_ADJ && startElement.getName().getLocalPart().equals(WAY_TAG)) {
+                    } else if (ADD_NODE_ADJACENCIES && startElement.getName().getLocalPart().equals(WAY_TAG)) {
 
                         way = new Way();
                         tagKey = null;
 
-                    } else if (ADD_NODE_ADJ && startElement.getName().getLocalPart().equals(NODE_REF_TAG)) {
+                    } else if (ADD_NODE_ADJACENCIES && startElement.getName().getLocalPart().equals(NODE_REF_TAG)) {
 
                         Iterator attributes = startElement.getAttributes();
                         while (attributes.hasNext()) {
@@ -125,7 +125,7 @@ public class Main {
                             }
                         }
 
-                    } else if (ADD_NODE_ADJ && startElement.getName().getLocalPart().equals("tag")) {
+                    } else if (ADD_NODE_ADJACENCIES && startElement.getName().getLocalPart().equals("tag")) {
 
                         Iterator attributes = startElement.getAttributes();
                         while (attributes.hasNext()) {
@@ -164,7 +164,7 @@ public class Main {
                                     elapsed, nodeCount, nodeAddedCount));
                         }
 
-                    } else if (ADD_NODE_ADJ && endElement.getName().getLocalPart().equals(WAY_TAG)) {
+                    } else if (ADD_NODE_ADJACENCIES && endElement.getName().getLocalPart().equals(WAY_TAG)) {
 
                         boolean rejectedTag = true;
                         boolean rejectedArea = true;
