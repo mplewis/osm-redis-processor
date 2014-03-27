@@ -11,6 +11,7 @@ import javax.xml.stream.events.XMLEvent;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -28,6 +29,9 @@ public class Main {
     public static final double LON_MIN = -93.250237;
     public static final double LON_MAX = -93.204060;
     public static final Area NODE_AREA = new Area(LAT_MIN, LAT_MAX, LON_MIN, LON_MAX);
+
+    public static final boolean FILTER_NODES_BY_TAG = true;
+    public static final List<String> ACCEPTABLE_TAG_KEYS = Arrays.asList("highway");
 
     public static final boolean COMMIT_DATA_TO_REDIS = false;
 
@@ -70,6 +74,7 @@ public class Main {
             int nodeCount = 0;
             int nodeAddedCount = 0;
             int wayCount = 0;
+            int wayAddedCount = 0;
 
             while (eventReader.hasNext()) {
                 XMLEvent event = eventReader.nextEvent();
@@ -150,12 +155,29 @@ public class Main {
 
                     } else if (ADD_NODE_ADJ && endElement.getName().getLocalPart().equals(WAY_TAG)) {
 
-                        commitWayToRedis(way, jedis);
+                        boolean commitWay = false;
+
+                        if (!FILTER_NODES_BY_TAG) {
+                            commitWay = true;
+                        } else { // Filtering nodes by ACCEPTABLE_TAG_KEYS
+                            for (String key : ACCEPTABLE_TAG_KEYS) {
+                                if (way.getTags().containsKey(key)) {
+                                    commitWay = true;
+                                    break; // Short-circuit: once an acceptable tag is found, the way can be added
+                                }
+                            }
+                        }
+
+                        if (commitWay) {
+                            commitWayToRedis(way, jedis);
+                            wayAddedCount++;
+                        }
 
                         wayCount++;
                         if (wayCount % 1000 == 0) {
                             float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
-                            System.out.println(String.format("%.3f: %s ways processed", elapsed, wayCount));
+                            System.out.println(String.format("%.3f: %s ways processed, %s accepted",
+                                    elapsed, wayCount, wayAddedCount));
                         }
 
                     }
