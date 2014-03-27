@@ -1,5 +1,7 @@
 package osmproc;
 
+import com.google.common.hash.BloomFilter;
+import com.google.common.hash.Funnels;
 import redis.clients.jedis.Jedis;
 
 import javax.xml.stream.XMLEventReader;
@@ -11,6 +13,7 @@ import javax.xml.stream.events.XMLEvent;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -20,7 +23,7 @@ public class Main {
 
     /* Node processing settings */
 
-    public static final boolean ADD_NODES = false;
+    public static final boolean ADD_NODES = true;
     public static final boolean ADD_NODE_ADJ = true;
 
     public static final boolean FILTER_NODES_BY_AREA = true;
@@ -28,6 +31,7 @@ public class Main {
     public static final double LAT_MAX =  44.992362;
     public static final double LON_MIN = -93.250237;
     public static final double LON_MAX = -93.204060;
+    public static final int EXPECTED_NODES_IN_AREA = 60000;
     public static final Area NODE_AREA = new Area(LAT_MIN, LAT_MAX, LON_MIN, LON_MAX);
 
     public static final boolean FILTER_NODES_BY_TAG = true;
@@ -71,10 +75,16 @@ public class Main {
             Way way = new Way();
             String tagKey = null;
 
+            BloomFilter<CharSequence> acceptedNodeIds = BloomFilter.create(
+                    Funnels.stringFunnel(StandardCharsets.UTF_8), EXPECTED_NODES_IN_AREA, 0.01);
+
             int nodeCount = 0;
             int nodeAddedCount = 0;
             int wayCount = 0;
             int wayAddedCount = 0;
+            int wayRejectedTagCount = 0;
+            int wayRejectedAreaCount = 0;
+            int wayRejectedTagAndAreaCount = 0;
 
             while (eventReader.hasNext()) {
                 XMLEvent event = eventReader.nextEvent();
@@ -143,6 +153,7 @@ public class Main {
 
                         if (!FILTER_NODES_BY_AREA || (FILTER_NODES_BY_AREA && NODE_AREA.contains(node))) {
                             commitNodeToRedis(node, jedis);
+                            acceptedNodeIds.put(node.getId());
                             nodeAddedCount++;
                         }
 
@@ -155,29 +166,43 @@ public class Main {
 
                     } else if (ADD_NODE_ADJ && endElement.getName().getLocalPart().equals(WAY_TAG)) {
 
-                        boolean commitWay = false;
+                        boolean rejectedTag = true;
+                        boolean rejectedArea = true;
 
-                        if (!FILTER_NODES_BY_TAG) {
-                            commitWay = true;
-                        } else { // Filtering nodes by ACCEPTABLE_TAG_KEYS
+                        if (FILTER_NODES_BY_TAG) { // Filtering nodes by ACCEPTABLE_TAG_KEYS
                             for (String key : ACCEPTABLE_TAG_KEYS) {
                                 if (way.getTags().containsKey(key)) {
-                                    commitWay = true;
+                                    rejectedTag = false;
                                     break; // Short-circuit: once an acceptable tag is found, the way can be added
                                 }
                             }
+                        } else {
+                            rejectedTag = false;
                         }
 
-                        if (commitWay) {
+                        if (!FILTER_NODES_BY_AREA || (FILTER_NODES_BY_AREA && way.mightHaveNodesIn(acceptedNodeIds))) {
+                            rejectedArea = false;
+                        }
+
+                        if (!rejectedTag && !rejectedArea) {
                             commitWayToRedis(way, jedis);
                             wayAddedCount++;
+                        } else if (rejectedTag && rejectedArea) {
+                            wayRejectedTagAndAreaCount++;
+                        } else if (rejectedTag) {
+                            wayRejectedTagCount++;
+                        } else if (rejectedArea) {
+                            wayRejectedAreaCount++;
                         }
 
                         wayCount++;
                         if (wayCount % 1000 == 0) {
                             float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
-                            System.out.println(String.format("%.3f: %s ways processed, %s accepted",
-                                    elapsed, wayCount, wayAddedCount));
+                            System.out.println(String.format(
+                                    "%.3f: %s ways processed, %s accepted, %s rejected by tag, " +
+                                    "%s rejected by area, %s rejected by both",
+                                    elapsed, wayCount, wayAddedCount, wayRejectedTagCount, wayRejectedAreaCount,
+                                    wayRejectedTagAndAreaCount));
                         }
 
                     }
