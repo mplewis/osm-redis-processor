@@ -2,27 +2,11 @@ package osmproc;
 
 import java.util.*;
 
-public class Tabulator {
+public class Tabulator<T> {
 
-    public class KeyCount implements Comparable<KeyCount> {
-        public final String key;
-        public final int count;
+    private Map<T, Integer> counts = new HashMap<T, Integer>();
 
-        public KeyCount(String key, int count) {
-            this.key = key;
-            this.count = count;
-        }
-
-        @Override
-        public int compareTo(KeyCount other) {
-            assert other != null;
-            return this.count - other.count;
-        }
-    }
-
-    private Map<String, Integer> counts = new HashMap<String, Integer>();
-
-    public void addKey(String key) {
+    public void addKey(T key) {
         if (counts.containsKey(key)) {
             counts.put(key, counts.get(key) + 1);
         } else {
@@ -30,23 +14,23 @@ public class Tabulator {
         }
     }
 
-    public List<KeyCount> getSortedCountsAsc() {
-        List<KeyCount> sortedCounts = new ArrayList<KeyCount>();
-        for (String key : counts.keySet()) {
+    public List<TabCount<T>> getSortedCountsAsc() {
+        List<TabCount<T>> sortedCounts = new ArrayList<TabCount<T>>();
+        for (T key : counts.keySet()) {
             int val = counts.get(key);
-            sortedCounts.add(new KeyCount(key, val));
+            sortedCounts.add(new TabCount<T>(key, val));
         }
         Collections.sort(sortedCounts);
         return sortedCounts;
     }
 
-    public List<KeyCount> getSortedCountsDesc() {
-        List<KeyCount> sorted = getSortedCountsAsc();
+    public List<TabCount<T>> getSortedCountsDesc() {
+        List<TabCount<T>> sorted = getSortedCountsAsc();
         Collections.reverse(sorted);
         return sorted;
     }
 
-    public Map<String, Integer> getCounts() {
+    public Map<T, Integer> getCounts() {
         return counts;
     }
 }

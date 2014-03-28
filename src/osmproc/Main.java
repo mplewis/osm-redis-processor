@@ -59,7 +59,7 @@ public class Main {
     /* The bread and butter */
 
     public static void main(String[] args) {
-        Tabulator tagTab = new Tabulator();
+        Tabulator<String> tagTab = new Tabulator<String>();
 
         try {
             Jedis jedis = new Jedis(JEDIS_HOST);
@@ -214,8 +214,8 @@ public class Main {
         }
 
         if (TABULATE_TAGS) {
-            List<Tabulator.KeyCount> tagCounts = tagTab.getSortedCountsDesc();
-            for (Tabulator.KeyCount tagCount : tagCounts) {
+            List<TabCount<String>> tagCounts = tagTab.getSortedCountsDesc();
+            for (TabCount<String> tagCount : tagCounts) {
                 System.out.println(tagCount.key + ": " + tagCount.count);
             }
         }
