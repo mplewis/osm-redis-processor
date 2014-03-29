@@ -238,16 +238,16 @@ public class Main {
             for (Tuple<String, String> nodeIdPair : way.getNodeIdPairs()) {
                 first = nodeIdPair.x;
                 second = nodeIdPair.y;
-                commitNodeAdjToRedis(first, second, jedis);
-                commitNodeAdjToRedis(second, first, jedis);
+                commitNodeIdAdjToRedis(first, second, jedis);
+                commitNodeIdAdjToRedis(second, first, jedis);
             }
         }
     }
 
-    static void commitNodeAdjToRedis(String baseNode, String adjNode, Jedis jedis) {
+    static void commitNodeIdAdjToRedis(String baseNodeId, String adjNodeId, Jedis jedis) {
         if (COMMIT_DATA_TO_REDIS) {
-            String key = String.format("nodeadj:%s", baseNode);
-            jedis.sadd(key, adjNode);
+            String key = String.format("nodeadj:%s", baseNodeId);
+            jedis.sadd(key, adjNodeId);
         }
     }
 
