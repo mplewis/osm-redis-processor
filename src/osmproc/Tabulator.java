@@ -33,4 +33,8 @@ public class Tabulator<T> {
     public Map<T, Integer> getCounts() {
         return counts;
     }
+
+    public int uniqueKeyCount() {
+        return counts.size();
+    }
 }
