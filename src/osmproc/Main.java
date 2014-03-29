@@ -13,7 +13,9 @@ import javax.xml.stream.events.XMLEvent;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
+import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -25,6 +27,7 @@ public class Main {
 
     public static final boolean ADD_NODES = true;
     public static final boolean ADD_NODE_ADJACENCIES = true;
+    public static final boolean ADD_NODE_PARTITIONS = true;
 
     public static final boolean FILTER_NODES_BY_AREA = true;
     public static final double LAT_MIN =  44.959454;
@@ -34,12 +37,15 @@ public class Main {
     public static final int EXPECTED_NODES_IN_AREA = 60000;
     public static final Area NODE_AREA = new Area(LAT_MIN, LAT_MAX, LON_MIN, LON_MAX);
 
+    public static final DecimalFormat PARTITION_PRECISION = new DecimalFormat("0.000");
+
     public static final boolean FILTER_NODES_BY_TAG = true;
     public static final List<String> ACCEPTABLE_TAG_KEYS = Arrays.asList("highway");
 
     public static final boolean COMMIT_DATA_TO_REDIS = false;
 
     public static final boolean TABULATE_TAGS = false;
+    public static final boolean TABULATE_PARTITIONS = false;
 
     public static final String OSM_DATA_XML_PATH = "data/mpls-stpaul.osm";
     public static final String JEDIS_HOST = "localhost";
@@ -59,7 +65,9 @@ public class Main {
     /* The bread and butter */
 
     public static void main(String[] args) {
+        PARTITION_PRECISION.setRoundingMode(RoundingMode.FLOOR); // Ensure all coord partition pairs are rounded down
         Tabulator<String> tagTab = new Tabulator<String>();
+        Tabulator<String> partTab = new Tabulator<String>();
 
         try {
             Jedis jedis = new Jedis(JEDIS_HOST);
@@ -155,6 +163,17 @@ public class Main {
                             commitNodeToRedis(node, jedis);
                             acceptedNodeIds.put(node.getId());
                             nodeAddedCount++;
+
+                            if (ADD_NODE_PARTITIONS || TABULATE_PARTITIONS) {
+                                String nodePartition = PARTITION_PRECISION.format(node.getLat()) + ":" +
+                                        PARTITION_PRECISION.format(node.getLon());
+                                if (TABULATE_PARTITIONS) {
+                                    partTab.addKey(nodePartition);
+                                }
+                                if (ADD_NODE_PARTITIONS) {
+                                    commitPartitionNodeToRedis(nodePartition, node, jedis);
+                                }
+                            }
                         }
 
                         nodeCount++;
@@ -218,6 +237,13 @@ public class Main {
             for (TabCount<String> tagCount : tagCounts) {
                 System.out.println(tagCount.key + ": " + tagCount.count);
             }
+        }
+
+        if (TABULATE_PARTITIONS) {
+            for (TabCount<String> coordCount : partTab.getSortedCountsAsc()) {
+                System.out.println(coordCount.key + ": " + coordCount.count);
+            }
+            System.out.println("Unique keys: " + partTab.uniqueKeyCount());
         }
     }
 
