@@ -251,4 +251,11 @@ public class Main {
         }
     }
 
+    static void commitPartitionNodeToRedis(String partition, Node node, Jedis jedis) {
+        if (COMMIT_DATA_TO_REDIS) {
+            String key = String.format("part:%s", partition);
+            jedis.sadd(key, node.getId());
+        }
+    }
+
 }
