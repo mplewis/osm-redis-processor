@@ -65,7 +65,7 @@ public class Main {
     /* The bread and butter */
 
     public static void main(String[] args) {
-        PARTITION_PRECISION.setRoundingMode(RoundingMode.FLOOR); // Ensure all coord partition pairs are rounded down
+        PARTITION_PRECISION.setRoundingMode(RoundingMode.DOWN); // Ensure all coord partition pairs are rounded down
         Tabulator<String> tagTab = new Tabulator<String>();
         Tabulator<String> partTab = new Tabulator<String>();
 
