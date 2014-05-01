@@ -1,8 +1,9 @@
 package osmproc;
 
-import com.google.common.hash.BloomFilter;
-import com.google.common.hash.Funnels;
-import redis.clients.jedis.Jedis;
+import osmproc.io.NodePartitionBuffer;
+import osmproc.structure.Node;
+import osmproc.structure.Tuple;
+import osmproc.structure.Way;
 
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
@@ -14,7 +15,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.math.RoundingMode;
-import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -27,29 +27,14 @@ public class Main {
 
     public static final boolean ADD_NODES = true;
     public static final boolean ADD_NODE_ADJACENCIES = true;
-    public static final boolean ADD_NODE_PARTITIONS = true;
 
-    public static final boolean FILTER_NODES_BY_AREA = true;
-    public static final double LAT_MIN =  44.959454;
-    public static final double LAT_MAX =  44.992362;
-    public static final double LON_MIN = -93.250237;
-    public static final double LON_MAX = -93.204060;
-    public static final int EXPECTED_NODES_IN_AREA = 60000;
-    public static final double BLOOM_FALSE_POS_PCT = 0.01;
-    public static final Area NODE_AREA = new Area(LAT_MIN, LAT_MAX, LON_MIN, LON_MAX);
-
-    public static final DecimalFormat PARTITION_PRECISION = new DecimalFormat("0.000");
+    public static final DecimalFormat PARTITION_PRECISION = new DecimalFormat("0.000"); // 3 zeroes
 
     public static final boolean FILTER_NODES_BY_TAG = true;
     public static final List<String> ACCEPTABLE_TAG_KEYS = Arrays.asList("highway");
 
-    public static final boolean COMMIT_DATA_TO_REDIS = false;
-    public static final String OSM_DATA_XML_PATH = "data/mpls-stpaul.osm";
-    public static final String JEDIS_HOST = "localhost";
-
-
-    public static final boolean TABULATE_TAGS = false;
-    public static final boolean TABULATE_PARTITIONS = false;
+    public static final String PARTITION_FILE_DIRECTORY = "output";
+    public static final String PARTITION_FILE_NAME_TEMPLATE = "%s_%s.json"; // lat, lng
 
     /* XML properties: do not modify! */
 
@@ -65,13 +50,16 @@ public class Main {
 
     /* The bread and butter */
 
-    public static void main(String[] args) {
-        PARTITION_PRECISION.setRoundingMode(RoundingMode.DOWN); // Ensure all coord partition pairs are rounded down
-        Tabulator<String> tagTab = new Tabulator<String>();
-        Tabulator<String> partTab = new Tabulator<String>();
+    public static void main(String[] args) throws Exception {
+        // Ensure all coord partition pairs are rounded down
+        PARTITION_PRECISION.setRoundingMode(RoundingMode.DOWN);
+
+        NodePartitionBuffer buf = new NodePartitionBuffer(
+                PARTITION_FILE_DIRECTORY, PARTITION_FILE_NAME_TEMPLATE, PARTITION_PRECISION);
+
+        final String OSM_DATA_XML_PATH = args[0];
 
         try {
-            Jedis jedis = new Jedis(JEDIS_HOST);
             File file = new File(OSM_DATA_XML_PATH);
 
             long startTime = System.currentTimeMillis();
@@ -80,20 +68,14 @@ public class Main {
             InputStream in = new FileInputStream(file);
             XMLEventReader eventReader = inputFactory.createXMLEventReader(in);
 
-            Node node = new Node();
+            Node node = null;
             Way way = new Way();
             String tagKey = null;
 
-            BloomFilter<CharSequence> acceptedNodeIds = BloomFilter.create(
-                    Funnels.stringFunnel(StandardCharsets.UTF_8), EXPECTED_NODES_IN_AREA, BLOOM_FALSE_POS_PCT);
-
             int nodeCount = 0;
-            int nodeAddedCount = 0;
             int wayCount = 0;
             int wayAddedCount = 0;
             int wayRejectedTagCount = 0;
-            int wayRejectedAreaCount = 0;
-            int wayRejectedTagAndAreaCount = 0;
 
             while (eventReader.hasNext()) {
                 XMLEvent event = eventReader.nextEvent();
@@ -110,7 +92,7 @@ public class Main {
                             Attribute attribute = (Attribute) attributes.next();
 
                             if (attribute.getName().toString().equals(NODE_ATTR_ID)) {
-                                node.setId(attribute.getValue());
+                                node.setNodeId(attribute.getValue());
                             } else if (attribute.getName().toString().equals(NODE_ATTR_LAT)) {
                                 node.setLat(Float.parseFloat(attribute.getValue()));
                             } else if (attribute.getName().toString().equals(NODE_ATTR_LON)) {
@@ -146,10 +128,6 @@ public class Main {
                             } else if (attribute.getName().toString().equals("v")) {
                                 String tagVal = attribute.getValue();
                                 way.addTag(tagKey, tagVal);
-
-                                if (TABULATE_TAGS) {
-                                    tagTab.addKey(tagKey);
-                                }
                             }
                         }
 
@@ -158,36 +136,19 @@ public class Main {
                 } else if (event.isEndElement()) {
 
                     EndElement endElement = event.asEndElement();
-                    if (ADD_NODES && endElement.getName().getLocalPart().equals(NODE_TAG)) {
-
-                        if (!FILTER_NODES_BY_AREA || (FILTER_NODES_BY_AREA && NODE_AREA.contains(node))) {
-                            commitNodeToRedis(node, jedis);
-                            acceptedNodeIds.put(node.getId());
-                            nodeAddedCount++;
-
-                            if (ADD_NODE_PARTITIONS || TABULATE_PARTITIONS) {
-                                String nodePartition = PARTITION_PRECISION.format(node.getLat()) + ":" +
-                                        PARTITION_PRECISION.format(node.getLon());
-                                if (TABULATE_PARTITIONS) {
-                                    partTab.addKey(nodePartition);
-                                }
-                                if (ADD_NODE_PARTITIONS) {
-                                    commitPartitionNodeToRedis(nodePartition, node, jedis);
-                                }
-                            }
-                        }
+                    if (ADD_NODES && nodeCount < 10000 && endElement.getName().getLocalPart().equals(NODE_TAG)) {
+                        buf.commitNode(node);
 
                         nodeCount++;
                         if (nodeCount % 10000 == 0) {
                             float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
-                            System.out.println(String.format("%.3f: %s nodes processed, %s accepted",
-                                    elapsed, nodeCount, nodeAddedCount));
+                            System.out.println(String.format("%.3f: %s nodes processed and accepted",
+                                    elapsed, nodeCount));
                         }
 
-                    } else if (ADD_NODE_ADJACENCIES && endElement.getName().getLocalPart().equals(WAY_TAG)) {
+                    } else if (ADD_NODE_ADJACENCIES && wayCount < 1000 & endElement.getName().getLocalPart().equals(WAY_TAG)) {
 
                         boolean rejectedTag = true;
-                        boolean rejectedArea = true;
 
                         if (FILTER_NODES_BY_TAG) { // Filtering nodes by ACCEPTABLE_TAG_KEYS
                             for (String key : ACCEPTABLE_TAG_KEYS) {
@@ -200,29 +161,25 @@ public class Main {
                             rejectedTag = false;
                         }
 
-                        if (!FILTER_NODES_BY_AREA || (FILTER_NODES_BY_AREA && way.mightHaveNodesIn(acceptedNodeIds))) {
-                            rejectedArea = false;
-                        }
+                        if (!rejectedTag) {
+                            for (Tuple<String, String> nodeIdPair : way.getNodeIdPairs()) {
+                                String first = nodeIdPair.x;
+                                String second = nodeIdPair.y;
+                                buf.commitNodeAdjIds(first, second);
+                                buf.commitNodeAdjIds(second, first);
+                            }
 
-                        if (!rejectedTag && !rejectedArea) {
-                            commitWayToRedis(way, jedis);
                             wayAddedCount++;
-                        } else if (rejectedTag && rejectedArea) {
-                            wayRejectedTagAndAreaCount++;
                         } else if (rejectedTag) {
                             wayRejectedTagCount++;
-                        } else if (rejectedArea) {
-                            wayRejectedAreaCount++;
                         }
 
                         wayCount++;
                         if (wayCount % 1000 == 0) {
                             float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
                             System.out.println(String.format(
-                                    "%.3f: %s ways processed, %s accepted, %s rejected by tag, " +
-                                    "%s rejected by area, %s rejected by both",
-                                    elapsed, wayCount, wayAddedCount, wayRejectedTagCount, wayRejectedAreaCount,
-                                    wayRejectedTagAndAreaCount));
+                                    "%.3f: %s ways processed, %s accepted, %s rejected by tag",
+                                    elapsed, wayCount, wayAddedCount, wayRejectedTagCount));
                         }
 
                     }
@@ -231,57 +188,6 @@ public class Main {
             }
         } catch (Exception e) {
             e.printStackTrace();
-        }
-
-        if (TABULATE_TAGS) {
-            List<TabCount<String>> tagCounts = tagTab.getSortedCountsDesc();
-            for (TabCount<String> tagCount : tagCounts) {
-                System.out.println(tagCount.key + ": " + tagCount.count);
-            }
-        }
-
-        if (TABULATE_PARTITIONS) {
-            for (TabCount<String> coordCount : partTab.getSortedCountsAsc()) {
-                System.out.println(coordCount.key + ": " + coordCount.count);
-            }
-            System.out.println("Unique keys: " + partTab.uniqueKeyCount());
-        }
-    }
-
-    /* Redis database functions */
-
-    static void commitNodeToRedis(Node node, Jedis jedis) {
-        if (COMMIT_DATA_TO_REDIS) {
-            String key = String.format("node:%s", node.getId());
-            String val = String.format("%s:%s", node.getLat(), node.getLon());
-            jedis.set(key, val);
-        }
-    }
-
-    static void commitWayToRedis(Way way, Jedis jedis) {
-        if (COMMIT_DATA_TO_REDIS) {
-            String first;
-            String second;
-            for (Tuple<String, String> nodeIdPair : way.getNodeIdPairs()) {
-                first = nodeIdPair.x;
-                second = nodeIdPair.y;
-                commitNodeIdAdjToRedis(first, second, jedis);
-                commitNodeIdAdjToRedis(second, first, jedis);
-            }
-        }
-    }
-
-    static void commitNodeIdAdjToRedis(String baseNodeId, String adjNodeId, Jedis jedis) {
-        if (COMMIT_DATA_TO_REDIS) {
-            String key = String.format("nodeadj:%s", baseNodeId);
-            jedis.sadd(key, adjNodeId);
-        }
-    }
-
-    static void commitPartitionNodeToRedis(String partition, Node node, Jedis jedis) {
-        if (COMMIT_DATA_TO_REDIS) {
-            String key = String.format("part:%s", partition);
-            jedis.sadd(key, node.getId());
         }
     }
 

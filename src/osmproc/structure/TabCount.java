@@ -1,4 +1,4 @@
-package osmproc;
+package osmproc.structure;
 
 public class TabCount<T> implements Comparable<TabCount<T>> {
     public final T key;

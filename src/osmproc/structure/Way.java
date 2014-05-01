@@ -1,4 +1,4 @@
-package osmproc;
+package osmproc.structure;
 
 import com.google.common.hash.BloomFilter;
 

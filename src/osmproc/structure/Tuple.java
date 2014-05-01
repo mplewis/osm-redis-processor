@@ -1,4 +1,4 @@
-package osmproc;
+package osmproc.structure;
 
 public class Tuple<X, Y> {
     public final X x;

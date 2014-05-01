@@ -9,6 +9,8 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="guava-16.0.1" level="project" />
     <orderEntry type="library" name="jedis-2.1.0" level="project" />
+    <orderEntry type="library" name="ormlite-core-4.48" level="project" />
+    <orderEntry type="library" name="sqlite-jdbc-3.7.2" level="project" />
   </component>
 </module>
 

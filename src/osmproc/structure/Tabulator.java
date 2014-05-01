@@ -1,4 +1,4 @@
-package osmproc;
+package osmproc.structure;
 
 import java.util.*;
 
@@ -37,4 +37,5 @@ public class Tabulator<T> {
     public int uniqueKeyCount() {
         return counts.size();
     }
+
 }

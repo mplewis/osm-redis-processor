@@ -1,16 +1,18 @@
-package osmproc;
+package osmproc.structure;
 
 public class Node {
-    private String id;
+    private String nodeId;
     private double lat;
     private double lon;
 
-    public String getId() {
-        return id;
+    public Node() {}
+
+    public String getNodeId() {
+        return nodeId;
     }
 
-    public void setId(String id) {
-        this.id = id;
+    public void setNodeId(String nodeId) {
+        this.nodeId = nodeId;
     }
 
     public double getLat() {
@@ -31,6 +33,11 @@ public class Node {
 
     @Override
     public String toString() {
-        return "Node (ID: " + getId() + ", Lat: " + getLat() + ", Lon: " + getLon() + ")";
+        return "Node{" +
+                "nodeId='" + nodeId + '\'' +
+                ", lat=" + lat +
+                ", lon=" + lon +
+                '}';
     }
+
 }
