@@ -1,12 +1,12 @@
 package osmproc.io;
 
 import osmproc.structure.Node;
+import osmproc.structure.Tuple;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.sql.*;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.List;
 
 public class NodePartitionBuffer {
 
@@ -17,6 +17,7 @@ public class NodePartitionBuffer {
     private Connection conn;
     private PreparedStatement insertNode;
     private PreparedStatement insertNodeAdj;
+    private PreparedStatement getPartitions;
 
     public NodePartitionBuffer(String directory, String filenameTemplate, DecimalFormat partitionPrecision)
             throws SQLException, ClassNotFoundException {
@@ -32,9 +33,11 @@ public class NodePartitionBuffer {
                 "longitude TEXT, lat_part TEXT, lon_part TEXT);").execute();
         conn.prepareStatement("CREATE TABLE node_adjs(id INTEGER PRIMARY KEY, node_a TEXT, node_b TEXT);").execute();
         this.insertNode = conn.prepareStatement(
-                "INSERT INTO nodes (node_id, latitude, longitude) VALUES (?, ?, ?);");
+                "INSERT INTO nodes (node_id, latitude, longitude, lat_part, lon_part) VALUES (?, ?, ?, ?, ?);");
         this.insertNodeAdj = conn.prepareStatement(
                 "INSERT INTO node_adjs (node_a, node_b) VALUES (?, ?);");
+        this.getPartitions = conn.prepareStatement(
+                "SELECT DISTINCT lat_part, lon_part FROM nodes ORDER BY lat_part, lon_part;");
     }
 
     public void commitNode(Node node) throws SQLException {
@@ -52,6 +55,17 @@ public class NodePartitionBuffer {
         insertNodeAdj.setString(1, nodeAId);
         insertNodeAdj.setString(2, nodeBId);
         insertNodeAdj.execute();
+    }
+
+    public List<Tuple<String, String>> getPartitions() throws SQLException {
+        List<Tuple<String, String>> partitions = new ArrayList<Tuple<String, String>>();
+        ResultSet results = getPartitions.executeQuery();
+        while (results.next()) {
+            String lat_part = results.getString(1);
+            String lon_part = results.getString(2);
+            partitions.add(new Tuple<String, String>(lat_part, lon_part));
+        }
+        return partitions;
     }
 
 }
