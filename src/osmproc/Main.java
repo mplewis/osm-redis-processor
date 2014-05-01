@@ -35,6 +35,7 @@ public class Main {
     public static final double LON_MIN = -93.250237;
     public static final double LON_MAX = -93.204060;
     public static final int EXPECTED_NODES_IN_AREA = 60000;
+    public static final double BLOOM_FALSE_POS_PCT = 0.01;
     public static final Area NODE_AREA = new Area(LAT_MIN, LAT_MAX, LON_MIN, LON_MAX);
 
     public static final DecimalFormat PARTITION_PRECISION = new DecimalFormat("0.000");
@@ -84,7 +85,7 @@ public class Main {
             String tagKey = null;
 
             BloomFilter<CharSequence> acceptedNodeIds = BloomFilter.create(
-                    Funnels.stringFunnel(StandardCharsets.UTF_8), EXPECTED_NODES_IN_AREA, 0.01);
+                    Funnels.stringFunnel(StandardCharsets.UTF_8), EXPECTED_NODES_IN_AREA, BLOOM_FALSE_POS_PCT);
 
             int nodeCount = 0;
             int nodeAddedCount = 0;
