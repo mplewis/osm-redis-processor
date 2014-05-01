@@ -43,12 +43,12 @@ public class Main {
     public static final List<String> ACCEPTABLE_TAG_KEYS = Arrays.asList("highway");
 
     public static final boolean COMMIT_DATA_TO_REDIS = false;
+    public static final String OSM_DATA_XML_PATH = "data/mpls-stpaul.osm";
+    public static final String JEDIS_HOST = "localhost";
+
 
     public static final boolean TABULATE_TAGS = false;
     public static final boolean TABULATE_PARTITIONS = false;
-
-    public static final String OSM_DATA_XML_PATH = "data/mpls-stpaul.osm";
-    public static final String JEDIS_HOST = "localhost";
 
     /* XML properties: do not modify! */
 
