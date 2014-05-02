@@ -31,7 +31,7 @@ public class NodePartitionBuffer {
         this.directory = directory;
         this.filenameTemplate = filenameTemplate;
         this.partitionPrecision = partitionPrecision;
-        this.conn = DriverManager.getConnection("jdbc:sqlite::memory:");
+        this.conn = DriverManager.getConnection("jdbc:sqlite:output/tmp/nodes.db");
         conn.prepareStatement("CREATE TABLE nodes(id INTEGER PRIMARY KEY, node_id TEXT, latitude TEXT, " +
                 "longitude TEXT, lat_part TEXT, lon_part TEXT);").execute();
         conn.prepareStatement("CREATE TABLE node_adjs(id INTEGER PRIMARY KEY, node_a TEXT, node_b TEXT);").execute();
