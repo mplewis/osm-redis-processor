@@ -137,7 +137,7 @@ public class Main {
                 } else if (event.isEndElement()) {
 
                     EndElement endElement = event.asEndElement();
-                    if (ADD_NODES && nodeCount < 10000 && endElement.getName().getLocalPart().equals(NODE_TAG)) {
+                    if (ADD_NODES && endElement.getName().getLocalPart().equals(NODE_TAG)) {
                         buf.commitNode(node);
 
                         nodeCount++;
@@ -147,7 +147,7 @@ public class Main {
                                     elapsed, nodeCount));
                         }
 
-                    } else if (ADD_NODE_ADJACENCIES && wayCount < 1000 & endElement.getName().getLocalPart().equals(WAY_TAG)) {
+                    } else if (ADD_NODE_ADJACENCIES && endElement.getName().getLocalPart().equals(WAY_TAG)) {
 
                         boolean rejectedTag = true;
 
