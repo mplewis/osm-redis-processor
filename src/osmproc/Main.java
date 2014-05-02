@@ -25,9 +25,6 @@ public class Main {
 
     /* Node processing settings */
 
-    public static final boolean ADD_NODES = true;
-    public static final boolean ADD_NODE_ADJACENCIES = true;
-
     public static final DecimalFormat PARTITION_PRECISION = new DecimalFormat("0.000"); // 3 zeroes
 
     public static final boolean FILTER_NODES_BY_TAG = true;
@@ -84,7 +81,7 @@ public class Main {
                 if (event.isStartElement()) {
 
                     StartElement startElement = event.asStartElement();
-                    if (ADD_NODES && startElement.getName().getLocalPart().equals(NODE_TAG)) {
+                    if (startElement.getName().getLocalPart().equals(NODE_TAG)) {
 
                         node = new Node();
                         Iterator attributes = startElement.getAttributes();
@@ -102,12 +99,12 @@ public class Main {
 
                         }
 
-                    } else if (ADD_NODE_ADJACENCIES && startElement.getName().getLocalPart().equals(WAY_TAG)) {
+                    } else if (startElement.getName().getLocalPart().equals(WAY_TAG)) {
 
                         way = new Way();
                         tagKey = null;
 
-                    } else if (ADD_NODE_ADJACENCIES && startElement.getName().getLocalPart().equals(NODE_REF_TAG)) {
+                    } else if (startElement.getName().getLocalPart().equals(NODE_REF_TAG)) {
 
                         Iterator attributes = startElement.getAttributes();
                         while (attributes.hasNext()) {
@@ -117,7 +114,7 @@ public class Main {
                             }
                         }
 
-                    } else if (ADD_NODE_ADJACENCIES && startElement.getName().getLocalPart().equals("tag")) {
+                    } else if (startElement.getName().getLocalPart().equals("tag")) {
 
                         Iterator attributes = startElement.getAttributes();
                         while (attributes.hasNext()) {
@@ -137,7 +134,7 @@ public class Main {
                 } else if (event.isEndElement()) {
 
                     EndElement endElement = event.asEndElement();
-                    if (ADD_NODES && endElement.getName().getLocalPart().equals(NODE_TAG)) {
+                    if (endElement.getName().getLocalPart().equals(NODE_TAG)) {
                         buf.commitNode(node);
 
                         nodeCount++;
@@ -147,7 +144,7 @@ public class Main {
                                     elapsed, nodeCount));
                         }
 
-                    } else if (ADD_NODE_ADJACENCIES && endElement.getName().getLocalPart().equals(WAY_TAG)) {
+                    } else if (endElement.getName().getLocalPart().equals(WAY_TAG)) {
 
                         boolean rejectedTag = true;
 
