@@ -61,9 +61,9 @@ public class NodePartitionBuffer {
         List<Tuple<String, String>> partitions = new ArrayList<Tuple<String, String>>();
         ResultSet results = getPartitions.executeQuery();
         while (results.next()) {
-            String lat_part = results.getString(1);
-            String lon_part = results.getString(2);
-            partitions.add(new Tuple<String, String>(lat_part, lon_part));
+            String latPart = results.getString(1);
+            String lonPart = results.getString(2);
+            partitions.add(new Tuple<String, String>(latPart, lonPart));
         }
         return partitions;
     }
