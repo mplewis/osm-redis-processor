@@ -1,5 +1,6 @@
 package osmproc.io;
 
+import com.google.gson.Gson;
 import osmproc.structure.Node;
 import osmproc.structure.Tuple;
 
@@ -18,6 +19,8 @@ public class NodePartitionBuffer {
     private PreparedStatement insertNode;
     private PreparedStatement insertNodeAdj;
     private PreparedStatement getPartitions;
+
+    private Gson gson = new Gson();
 
     public NodePartitionBuffer(String directory, String filenameTemplate, DecimalFormat partitionPrecision)
             throws SQLException, ClassNotFoundException {
@@ -66,6 +69,10 @@ public class NodePartitionBuffer {
             partitions.add(new Tuple<String, String>(latPart, lonPart));
         }
         return partitions;
+    }
+
+    public String partcodeFromTemplate(String latShort, String lonShort) {
+        return String.format(filenameTemplate, latShort, lonShort);
     }
 
     public List<Node> getNodesForPartition(String latPrefix, String lonPrefix) throws SQLException {
