@@ -89,4 +89,14 @@ public class NodePartitionBuffer {
         return nodes;
     }
 
+    public List<String> getNodeAdjsForNodeId(String nodeId) throws SQLException {
+        List<String> nodeAdjs = new ArrayList<String>();
+        String query = String.format("SELECT node_b FROM node_adjs WHERE node_a IS %s", nodeId);
+        ResultSet results = conn.prepareStatement(query).executeQuery();
+        while (results.next()) {
+            nodeAdjs.add(results.getString(1));
+        }
+        return nodeAdjs;
+    }
+
 }

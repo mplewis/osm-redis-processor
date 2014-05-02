@@ -200,10 +200,30 @@ public class Main {
         partMapWriter.beginObject();
         for (Tuple<String, String> p : partitions) {
             List<Node> nodes = buf.getNodesForPartition(p.x, p.y);
+            String partFileName = buf.partcodeFromTemplate(p.x, p.y);
+            String partPath = new File(PARTITION_FILE_DIRECTORY, partFileName).toString();
+            JsonWriter partWriter = new JsonWriter(new BufferedWriter(new FileWriter(partPath)));
+            partWriter.beginObject();
             for (Node node : nodes) {
                 String nodeId = node.getNodeId();
                 String partitionCode = buf.partcodeFromTemplate(p.x, p.y);
                 partMapWriter.name(nodeId).value(partitionCode);
+
+                partWriter.name(nodeId);
+
+                partWriter.beginObject();
+                partWriter.name("lat").value(node.getLat());
+                partWriter.name("lon").value(node.getLon());
+                partWriter.name("adj");
+
+                partWriter.beginArray();
+                for (String adj : buf.getNodeAdjsForNodeId(nodeId)) {
+                    partWriter.value(adj);
+                }
+                partWriter.endArray();
+
+                partWriter.endObject();
+
                 nodePartCount++;
                 if (nodePartCount % 10 == 0) {
                     float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
@@ -211,6 +231,8 @@ public class Main {
                             "%.3f: %s node parts processed", elapsed, nodePartCount));
                 }
             }
+            partWriter.endObject();
+            partWriter.close();
         }
         partMapWriter.endObject();
         partMapWriter.close();
