@@ -7,6 +7,12 @@ public class Node {
 
     public Node() {}
 
+    public Node(String nodeId, double lat, double lon) {
+        this.nodeId = nodeId;
+        this.lat = lat;
+        this.lon = lon;
+    }
+
     public String getNodeId() {
         return nodeId;
     }
