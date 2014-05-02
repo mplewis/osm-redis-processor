@@ -222,7 +222,7 @@ public class Main {
                 partWriter.endObject();
 
                 nodePartCount++;
-                if (nodePartCount % 10 == 0) {
+                if (nodePartCount % 100 == 0) {
                     float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
                     System.out.println(String.format(
                             "%.3f: %s node parts processed", elapsed, nodePartCount));
