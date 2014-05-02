@@ -1,8 +1,7 @@
 package osmproc;
 
-import com.google.gson.Gson;
 import com.google.gson.stream.JsonWriter;
-import osmproc.io.NodePartitionBuffer;
+import osmproc.structure.Area;
 import osmproc.structure.Node;
 import osmproc.structure.Tuple;
 import osmproc.structure.Way;
@@ -14,25 +13,24 @@ import javax.xml.stream.events.EndElement;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import java.io.*;
-import java.math.RoundingMode;
-import java.text.DecimalFormat;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 @SuppressWarnings({"PointlessBooleanExpression", "ConstantConditions"})
 public class Main {
 
     /* Node processing settings */
 
-    public static final DecimalFormat PARTITION_PRECISION = new DecimalFormat("0.000"); // 3 zeroes
-
     public static final boolean FILTER_NODES_BY_TAG = true;
     public static final List<String> ACCEPTABLE_TAG_KEYS = Arrays.asList("highway");
 
-    public static final String PARTITION_FILE_DIRECTORY = "output";
-    public static final String PARTITION_FILE_NAME_TEMPLATE = "%s_%s.json"; // lat, lng
-    public static final String PARTITION_MAP_FILE_NAME = "node_partition_map.json"; // lat, lng
+    public static final String INPUT_OSM_XML_PATH = "data/mpls-stpaul.osm";
+    public static final String OUTPUT_JSON_PATH = "output/nodes.json";
+
+    public static final double LAT_MIN =  44.959454;
+    public static final double LAT_MAX =  44.992362;
+    public static final double LON_MIN = -93.250237;
+    public static final double LON_MAX = -93.204060;
+    public static final Area NODE_AREA = new Area(LAT_MIN, LAT_MAX, LON_MIN, LON_MAX);
 
     /* XML properties: do not modify! */
 
@@ -48,19 +46,23 @@ public class Main {
 
     /* The bread and butter */
 
+    public static Set<Node> nodesInArea = new HashSet<Node>();
+    public static Set<String> nodeIdsInArea = new HashSet<String>();
+    public static Map<String, Set<String>> nodeAdjs = new HashMap<String, Set<String>>();
+    public static Set<String> taggedNodeIds = new HashSet<String>();
+
     public static void main(String[] args) throws Exception {
-        // Ensure all coord partition pairs are rounded down
-        PARTITION_PRECISION.setRoundingMode(RoundingMode.DOWN);
-
-        NodePartitionBuffer buf = new NodePartitionBuffer(
-                PARTITION_FILE_DIRECTORY, PARTITION_FILE_NAME_TEMPLATE, PARTITION_PRECISION);
-
-        final String OSM_DATA_XML_PATH = args[0];
-
         long startTime = System.currentTimeMillis();
 
+        int nodeCount = 0;
+        int nodeAcceptedCount = 0;
+        int nodeRejectedAreaCount = 0;
+        int wayCount = 0;
+        int wayAddedCount = 0;
+        int wayRejectedTagCount = 0;
+
         try {
-            File file = new File(OSM_DATA_XML_PATH);
+            File file = new File(INPUT_OSM_XML_PATH);
 
             XMLInputFactory inputFactory = XMLInputFactory.newInstance();
             InputStream in = new FileInputStream(file);
@@ -69,11 +71,6 @@ public class Main {
             Node node = null;
             Way way = new Way();
             String tagKey = null;
-
-            int nodeCount = 0;
-            int wayCount = 0;
-            int wayAddedCount = 0;
-            int wayRejectedTagCount = 0;
 
             while (eventReader.hasNext()) {
                 XMLEvent event = eventReader.nextEvent();
@@ -135,13 +132,21 @@ public class Main {
 
                     EndElement endElement = event.asEndElement();
                     if (endElement.getName().getLocalPart().equals(NODE_TAG)) {
-                        buf.commitNode(node);
+
+                        if (NODE_AREA.contains(node)) {
+                            nodesInArea.add(node);
+                            nodeIdsInArea.add(node.getNodeId());
+                            nodeAcceptedCount++;
+                        } else {
+                            nodeRejectedAreaCount++;
+                        }
 
                         nodeCount++;
                         if (nodeCount % 10000 == 0) {
                             float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
-                            System.out.println(String.format("%.3f: %s nodes processed and accepted",
-                                    elapsed, nodeCount));
+                            System.out.println(String.format(
+                                    "%.3f: %s nodes processed, %s accepted, %s rejected by area",
+                                    elapsed, nodeCount, nodeAcceptedCount, nodeRejectedAreaCount));
                         }
 
                     } else if (endElement.getName().getLocalPart().equals(WAY_TAG)) {
@@ -160,11 +165,29 @@ public class Main {
                         }
 
                         if (!rejectedTag) {
+                            taggedNodeIds.addAll(way.getNodeIds());
+
                             for (Tuple<String, String> nodeIdPair : way.getNodeIdPairs()) {
                                 String first = nodeIdPair.x;
                                 String second = nodeIdPair.y;
-                                buf.commitNodeAdjIds(first, second);
-                                buf.commitNodeAdjIds(second, first);
+
+                                // Don't add adjacencies for nodes not in area
+                                if (!nodeIdsInArea.contains(first) || !nodeIdsInArea.contains(second)) {
+                                    continue;
+                                }
+
+                                Set<String> firstSet = nodeAdjs.get(first);
+                                Set<String> secondSet = nodeAdjs.get(second);
+                                if (firstSet == null) {
+                                    firstSet = new HashSet<String>();
+                                    nodeAdjs.put(first, firstSet);
+                                }
+                                if (secondSet == null) {
+                                    secondSet = new HashSet<String>();
+                                    nodeAdjs.put(second, secondSet);
+                                }
+                                firstSet.add(second);
+                                secondSet.add(first);
                             }
 
                             wayAddedCount++;
@@ -184,54 +207,71 @@ public class Main {
                 }
 
             }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
 
-        Gson gson = new Gson();
-        String partMapPath = new File(PARTITION_FILE_DIRECTORY, PARTITION_MAP_FILE_NAME).toString();
-        JsonWriter partMapWriter = new JsonWriter(new BufferedWriter(new FileWriter(partMapPath)));
-        int nodePartCount = 0;
+        System.out.println(String.format("%.3f: %s nodes processed total, %s ways processed total",
+                (float) (System.currentTimeMillis() - startTime) / 1000, nodeCount, wayCount));
 
-        List<Tuple<String, String>> partitions = buf.getPartitions();
+        int nodesCheckedForTag = 0;
+        int nodesTrimmedByTag = 0;
+        int nodesNotTrimmedByTag = 0;
+        List<Node> trimmedNodesInArea = new ArrayList<Node>();
+
+        for (Node node : nodesInArea) {
+            if (taggedNodeIds.contains(node.getNodeId())) {
+                trimmedNodesInArea.add(node);
+                nodesNotTrimmedByTag++;
+            } else {
+                nodesTrimmedByTag++;
+            }
+            nodesCheckedForTag++;
+            if (nodesCheckedForTag % 1000 == 0) {
+                float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
+                System.out.println(String.format(
+                        "%.3f: %s nodes checked for tag, %s accepted, %s trimmed by tag",
+                        elapsed, nodesCheckedForTag, nodesNotTrimmedByTag, nodesTrimmedByTag));
+            }
+        }
+
+        System.out.println(String.format("%.3f: %s nodes accepted total",
+                (float) (System.currentTimeMillis() - startTime) / 1000, nodesNotTrimmedByTag));
+
+        JsonWriter partMapWriter = new JsonWriter(new BufferedWriter(new FileWriter(new File(OUTPUT_JSON_PATH))));
+        int nodeWrittenCount = 0;
+
         partMapWriter.beginObject();
-        for (Tuple<String, String> p : partitions) {
-            List<Node> nodes = buf.getNodesForPartition(p.x, p.y);
-            String partFileName = buf.partcodeFromTemplate(p.x, p.y);
-            String partPath = new File(PARTITION_FILE_DIRECTORY, partFileName).toString();
-            JsonWriter partWriter = new JsonWriter(new BufferedWriter(new FileWriter(partPath)));
-            partWriter.beginObject();
-            for (Node node : nodes) {
-                String nodeId = node.getNodeId();
-                String partitionCode = buf.partcodeFromTemplate(p.x, p.y);
-                partMapWriter.name(nodeId).value(partitionCode);
 
-                partWriter.name(nodeId);
-
-                partWriter.beginObject();
-                partWriter.name("lat").value(node.getLat());
-                partWriter.name("lon").value(node.getLon());
-                partWriter.name("adj");
-
-                partWriter.beginArray();
-                for (String adj : buf.getNodeAdjsForNodeId(nodeId)) {
-                    partWriter.value(adj);
-                }
-                partWriter.endArray();
-
-                partWriter.endObject();
-
-                nodePartCount++;
-                if (nodePartCount % 100 == 0) {
-                    float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
-                    System.out.println(String.format("%.3f: %s node parts processed", elapsed, nodePartCount));
+        for (Node node : trimmedNodesInArea) {
+            partMapWriter.name(node.getNodeId());
+            partMapWriter.beginObject();
+            partMapWriter.name("lat").value(node.getLat());
+            partMapWriter.name("lon").value(node.getLon());
+            partMapWriter.name("adj");
+            partMapWriter.beginArray();
+            Set<String> singleNodeAdjs = nodeAdjs.get(node.getNodeId());
+            if (singleNodeAdjs != null) {
+                for (String adj : singleNodeAdjs) {
+                    partMapWriter.value(adj);
                 }
             }
-            partWriter.endObject();
-            partWriter.close();
+            partMapWriter.endArray();
+            partMapWriter.endObject();
+
+            nodeWrittenCount++;
+            if (nodeWrittenCount % 1000 == 0) {
+                float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
+                System.out.println(String.format("%.3f: %s nodes written", elapsed, nodeWrittenCount));
+            }
         }
+
         partMapWriter.endObject();
         partMapWriter.close();
+
+        System.out.println(String.format("%.3f: %s nodes written total",
+                (float) (System.currentTimeMillis() - startTime) / 1000, nodeWrittenCount));
     }
 
 }
