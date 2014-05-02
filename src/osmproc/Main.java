@@ -1,5 +1,7 @@
 package osmproc;
 
+import com.google.gson.Gson;
+import com.google.gson.stream.JsonWriter;
 import osmproc.io.NodePartitionBuffer;
 import osmproc.structure.Node;
 import osmproc.structure.Tuple;
@@ -11,9 +13,7 @@ import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.EndElement;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
+import java.io.*;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.util.Arrays;
@@ -35,6 +35,7 @@ public class Main {
 
     public static final String PARTITION_FILE_DIRECTORY = "output";
     public static final String PARTITION_FILE_NAME_TEMPLATE = "%s_%s.json"; // lat, lng
+    public static final String PARTITION_MAP_FILE_NAME = "node_partition_map.json"; // lat, lng
 
     /* XML properties: do not modify! */
 
@@ -59,10 +60,10 @@ public class Main {
 
         final String OSM_DATA_XML_PATH = args[0];
 
+        long startTime = System.currentTimeMillis();
+
         try {
             File file = new File(OSM_DATA_XML_PATH);
-
-            long startTime = System.currentTimeMillis();
 
             XMLInputFactory inputFactory = XMLInputFactory.newInstance();
             InputStream in = new FileInputStream(file);
@@ -189,6 +190,30 @@ public class Main {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        Gson gson = new Gson();
+        String partMapPath = new File(PARTITION_FILE_DIRECTORY, PARTITION_MAP_FILE_NAME).toString();
+        JsonWriter partMapWriter = new JsonWriter(new BufferedWriter(new FileWriter(partMapPath)));
+        int nodePartCount = 0;
+
+        List<Tuple<String, String>> partitions = buf.getPartitions();
+        partMapWriter.beginObject();
+        for (Tuple<String, String> p : partitions) {
+            List<Node> nodes = buf.getNodesForPartition(p.x, p.y);
+            for (Node node : nodes) {
+                String nodeId = node.getNodeId();
+                String partitionCode = buf.partcodeFromTemplate(p.x, p.y);
+                partMapWriter.name(nodeId).value(partitionCode);
+                nodePartCount++;
+                if (nodePartCount % 10 == 0) {
+                    float elapsed = (float) (System.currentTimeMillis() - startTime) / 1000;
+                    System.out.println(String.format(
+                            "%.3f: %s node parts processed", elapsed, nodePartCount));
+                }
+            }
+        }
+        partMapWriter.endObject();
+        partMapWriter.close();
     }
 
 }
