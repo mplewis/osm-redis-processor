@@ -68,4 +68,18 @@ public class NodePartitionBuffer {
         return partitions;
     }
 
+    public List<Node> getNodesForPartition(String latPrefix, String lonPrefix) throws SQLException {
+        List<Node> nodes = new ArrayList<Node>();
+        String query = String.format("SELECT node_id, latitude, longitude FROM nodes " +
+                "WHERE lat_part IS \"%s\" AND lon_part IS \"%s\"", latPrefix, lonPrefix);
+        ResultSet results = conn.prepareStatement(query).executeQuery();
+        while (results.next()) {
+            String nodeId = results.getString(1);
+            double latitude = results.getDouble(2);
+            double longitude = results.getDouble(3);
+            nodes.add(new Node(nodeId, latitude, longitude));
+        }
+        return nodes;
+    }
+
 }
