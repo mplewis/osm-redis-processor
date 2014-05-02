@@ -12,7 +12,7 @@ public class NodePartitionBuffer {
 
     private String directory;
     private String filenameTemplate;
-    private final DecimalFormat partitionPrecision;
+    private DecimalFormat partitionPrecision;
 
     private Connection conn;
     private PreparedStatement insertNode;
