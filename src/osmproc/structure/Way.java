@@ -48,6 +48,9 @@ public class Way {
 
     @Override
     public String toString() {
-        return String.format("Way: %s nodes%s", size(), isCircular() ? " (circular)" : "");
+        return "Way{" +
+                "nodeIds=" + nodeIds +
+                ", tags=" + tags +
+                '}';
     }
 }
