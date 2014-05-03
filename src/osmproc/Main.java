@@ -26,10 +26,10 @@ public class Main {
     public static final String INPUT_OSM_XML_PATH = "data/mpls-stpaul.osm";
     public static final String OUTPUT_JSON_PATH = "output/nodes.json";
 
-    public static final double LAT_MIN =  44.959454;
-    public static final double LAT_MAX =  44.992362;
-    public static final double LON_MIN = -93.250237;
-    public static final double LON_MAX = -93.204060;
+    public static final double LAT_MIN =  44.963644;
+    public static final double LAT_MAX =  44.992119;
+    public static final double LON_MIN = -93.289633;
+    public static final double LON_MAX = -93.203716;
     public static final Area NODE_AREA = new Area(LAT_MIN, LAT_MAX, LON_MIN, LON_MAX);
 
     /* XML properties: do not modify! */
