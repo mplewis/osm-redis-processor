@@ -1,6 +1,4 @@
-package osmproc;
-
-import com.google.common.hash.BloomFilter;
+package osmproc.structure;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -48,17 +46,11 @@ public class Way {
         return nodeIds.get(0).equals(nodeIds.get(size() - 1));
     }
 
-    public boolean mightHaveNodesIn(BloomFilter<CharSequence> filter) {
-        for (String nodeId : nodeIds) {
-            if (filter.mightContain(nodeId)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     @Override
     public String toString() {
-        return String.format("Way: %s nodes%s", size(), isCircular() ? " (circular)" : "");
+        return "Way{" +
+                "nodeIds=" + nodeIds +
+                ", tags=" + tags +
+                '}';
     }
 }

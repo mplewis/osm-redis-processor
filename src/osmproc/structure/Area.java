@@ -1,4 +1,4 @@
-package osmproc;
+package osmproc.structure;
 
 public class Area {
     private double latMin;
@@ -46,6 +46,6 @@ public class Area {
     }
 
     public boolean contains(Node node) {
-        return node.getLat() > latMin && node.getLat() < latMax && node.getLon() > lonMin && node.getLon() < lonMax;
+        return node.getLat() >= latMin && node.getLat() <= latMax && node.getLon() >= lonMin && node.getLon() <= lonMax;
     }
 }
