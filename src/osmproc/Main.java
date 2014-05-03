@@ -20,7 +20,6 @@ public class Main {
 
     /* Node processing settings */
 
-    public static final boolean FILTER_NODES_BY_TAG = true;
     public static final List<String> ACCEPTABLE_TAG_KEYS = Arrays.asList("highway");
 
     public static final String INPUT_OSM_XML_PATH = "data/mpls-stpaul.osm";
@@ -36,6 +35,7 @@ public class Main {
 
     public static final String NODE_TAG = "node";
     public static final String WAY_TAG = "way";
+    public static final String WAY_TAG_TAG = "tag";
     public static final String NODE_REF_TAG = "nd";
 
     public static final String NODE_ATTR_ID = "id";
@@ -71,6 +71,7 @@ public class Main {
             Node node = null;
             Way way = new Way();
             String tagKey = null;
+            String tagVal = null;
 
             while (eventReader.hasNext()) {
                 XMLEvent event = eventReader.nextEvent();
@@ -119,10 +120,8 @@ public class Main {
 
                             if (attribute.getName().toString().equals("k")) {
                                 tagKey = attribute.getValue();
-
                             } else if (attribute.getName().toString().equals("v")) {
-                                String tagVal = attribute.getValue();
-                                way.addTag(tagKey, tagVal);
+                                tagVal = attribute.getValue();
                             }
                         }
 
@@ -152,16 +151,11 @@ public class Main {
                     } else if (endElement.getName().getLocalPart().equals(WAY_TAG)) {
 
                         boolean rejectedTag = true;
-
-                        if (FILTER_NODES_BY_TAG) { // Filtering nodes by ACCEPTABLE_TAG_KEYS
-                            for (String key : ACCEPTABLE_TAG_KEYS) {
-                                if (way.getTags().containsKey(key)) {
-                                    rejectedTag = false;
-                                    break; // Short-circuit: once an acceptable tag is found, the way can be added
-                                }
+                        for (String key : ACCEPTABLE_TAG_KEYS) {
+                            if (way.getTags().containsKey(key)) {
+                                rejectedTag = false;
+                                break; // Short-circuit: once an acceptable tag is found, the way can be added
                             }
-                        } else {
-                            rejectedTag = false;
                         }
 
                         if (!rejectedTag) {
@@ -203,6 +197,8 @@ public class Main {
                                     elapsed, wayCount, wayAddedCount, wayRejectedTagCount));
                         }
 
+                    } else if (endElement.getName().getLocalPart().equals(WAY_TAG_TAG)) {
+                        way.addTag(tagKey, tagVal);
                     }
                 }
 
