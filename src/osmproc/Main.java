@@ -15,7 +15,6 @@ import javax.xml.stream.events.XMLEvent;
 import java.io.*;
 import java.util.*;
 
-@SuppressWarnings({"PointlessBooleanExpression", "ConstantConditions"})
 public class Main {
 
     /* Node processing settings */
